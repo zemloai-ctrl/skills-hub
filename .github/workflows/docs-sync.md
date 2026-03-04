@@ -30,7 +30,9 @@ You are a documentation maintenance agent for the **AI Skills Hub** repository. 
 
 ## Context
 
-This repository is a curated catalog of AI assistant skills. Skills are aggregated from three upstream sources (git submodules under `sources/`) into `site/src/data/skills.json` by a weekly sync workflow. There is also a manually curated `skills/registry.json`.
+This repository is a curated catalog of AI assistant skills. Skills are aggregated from three upstream sources (git submodules under `sources/`) into `site/src/data/skills.json` by a weekly sync workflow. There is also a manually curated `skills/registry.json` which is a small subset.
+
+**`site/src/data/skills.json` is the canonical source of truth** for total skills count, category counts, and category listings. The `skills/registry.json` file is only a manually curated subset and must NOT be used for totals or category counts in documentation.
 
 The documentation files that must stay in sync are:
 
@@ -40,11 +42,11 @@ The documentation files that must stay in sync are:
 
 ## Your Task
 
-1. **Read the current skills data** by examining `skills/registry.json` and `site/src/data/skills.json`.
+1. **Read the current skills data** from `site/src/data/skills.json` (the canonical aggregated source). Count categories and skills from this file only. You may also glance at `skills/registry.json` for context, but never use its counts for documentation.
 
 2. **Audit the documentation** for staleness:
-   - **README.md**: Check that the categories table lists all current categories (and no removed ones). Check that the skills count badge number is accurate. Check that the project structure section reflects reality.
-   - **CONTRIBUTING.md**: Check that the categories table matches current categories in the registry. Check that the skill entry format example is consistent with `skills/schema.json`.
+   - **README.md**: Check that the categories table lists all current categories (and no removed ones) with correct per-category skill counts from `site/src/data/skills.json`. Check that the skills count badge number matches the total from `site/src/data/skills.json`. Check that the project structure section reflects reality.
+   - **CONTRIBUTING.md**: Check that the categories table matches current categories in `site/src/data/skills.json`. Check that the skill entry format example is consistent with `skills/schema.json`.
    - **site/src/pages/index.astro**: Verify that featured skill references and category listings match the data.
 
 3. **Identify drift** — List every concrete discrepancy you find (added/removed categories, count changes, missing fields, outdated examples).
