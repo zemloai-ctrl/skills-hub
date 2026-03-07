@@ -140,7 +140,14 @@ const allFilesJson = JSON.stringify(skill.files.map(f => ({
       <header class="skill-header">
         <div class="skill-title-row">
           <h1>{displayName}</h1>
-          <span class={`badge ${complexityColors[skill.complexity]}`}>{skill.complexity}</span>
+          <div class="skill-title-badges">
+            {skill.verified && (
+              <span class="badge badge-verified" title="Security scan passed – no dangerous patterns detected">
+                ✅ Verified
+              </span>
+            )}
+            <span class={`badge ${complexityColors[skill.complexity]}`}>{skill.complexity}</span>
+          </div>
         </div>
         <p class="skill-description">{skill.description}</p>
         
@@ -343,6 +350,23 @@ const allFilesJson = JSON.stringify(skill.files.map(f => ({
             </div>
           </div>
 
+          {skill.securityScan && (
+            <div class="sidebar-card security-card">
+              <h3>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                </svg>
+                Security Scan
+              </h3>
+              {skill.securityScan.verified ? (
+                <p class="security-pass">✅ No dangerous patterns detected</p>
+              ) : (
+                <p class="security-warn">⚠️ {skill.securityScan.issueCount} potential issue(s) flagged</p>
+              )}
+              <p class="security-meta">Scanned {new Date(skill.securityScan.scannedAt).toLocaleDateString()}</p>
+            </div>
+          )}
+
           <div class="sidebar-card">
             <h3>Related Skills</h3>
             <p class="text-secondary">Other skills in {category?.name || skill.category}</p>
@@ -401,6 +425,20 @@ const allFilesJson = JSON.stringify(skill.files.map(f => ({
 
   .skill-title-row h1 {
     font-size: 2.5rem;
+  }
+
+  .skill-title-badges {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+  }
+
+  .badge-verified {
+    background-color: rgba(63, 185, 80, 0.15);
+    color: var(--color-success, #3fb950);
+    border: 1px solid rgba(63, 185, 80, 0.3);
+    white-space: nowrap;
   }
 
   .skill-description {
@@ -937,6 +975,29 @@ const allFilesJson = JSON.stringify(skill.files.map(f => ({
     background: var(--color-bg-tertiary);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-full);
+    font-size: 0.75rem;
+    color: var(--color-text-secondary);
+  }
+
+  .security-card h3 {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .security-pass {
+    color: var(--color-success, #3fb950);
+    font-size: 0.875rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .security-warn {
+    color: var(--color-warning, #d29922);
+    font-size: 0.875rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .security-meta {
     font-size: 0.75rem;
     color: var(--color-text-secondary);
   }
