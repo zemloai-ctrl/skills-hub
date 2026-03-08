@@ -133,16 +133,21 @@ const categories = Object.entries(categoryCounts).map(([id, count]) => ({
       <div class="install-steps">
         <div class="step">
           <div class="step-number">1</div>
-          <h3>Copy Skill Files</h3>
-          <p class="step-desc">Click "Copy All Files" on any skill page to copy all files to your clipboard, then create the folder in your project.</p>
-          <pre><code>.github/skills/&lt;skill-name&gt;/</code></pre>
+          <h3>Install with the CLI <span class="step-tag">Recommended</span></h3>
+          <p class="step-desc">Install the <code>gh skills-hub</code> extension, then install any skill in one command.</p>
+          <pre><code>gh extension install samueltauil/skills-hub
+gh skills-hub install &lt;skill-name&gt;</code></pre>
+          <p class="step-desc step-extra">Search and browse skills from your terminal:</p>
+          <pre><code>gh skills-hub search git
+gh skills-hub list
+gh skills-hub info &lt;skill-name&gt;</code></pre>
         </div>
         <div class="step">
           <div class="step-number">2</div>
-          <h3>Done! Copilot auto-discovers skills</h3>
-          <pre><code># Skills are loaded automatically based on
-# their name and description frontmatter.
-# No configuration needed!</code></pre>
+          <h3>Or copy manually</h3>
+          <p class="step-desc">Click "Download ZIP" or "Copy All Files" on any skill page, then add to your project.</p>
+          <pre><code>.github/skills/&lt;skill-name&gt;/</code></pre>
+          <p class="step-desc step-extra" style="margin-top: 1rem;">Copilot auto-discovers skills — no configuration needed!</p>
         </div>
       </div>
     </div>
@@ -357,6 +362,30 @@ const categories = Object.entries(categoryCounts).map(([id, count]) => ({
   .step h3 {
     font-size: 1rem;
     margin-bottom: 1rem;
+  }
+
+  .step-tag {
+    display: inline-block;
+    font-size: 0.625rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.125rem 0.5rem;
+    background: rgba(88, 166, 255, 0.15);
+    color: var(--color-accent);
+    border-radius: var(--radius-full, 999px);
+    vertical-align: middle;
+    margin-left: 0.375rem;
+  }
+
+  .step-desc {
+    font-size: 0.8125rem;
+    color: var(--color-text-secondary);
+    margin-bottom: 0.75rem;
+  }
+
+  .step-extra {
+    margin-top: 0.75rem;
   }
 
   .step pre {

@@ -1,0 +1,282 @@
+#!/usr/bin/env bash
+# gh-skills-hub — GitHub CLI extension for installing Copilot skills from Skills Hub
+#
+# Usage:
+#   gh skills-hub install <skill-name>   Install a skill into .github/skills/
+#   gh skills-hub search  <query>        Search for skills by name or keyword
+#   gh skills-hub list                   List all available skills
+#   gh skills-hub info    <skill-name>   Show details about a skill
+#   gh skills-hub remove  <skill-name>   Remove an installed skill
+#
+# Environment:
+#   SKILLS_HUB_URL   Override the skills.json URL (default: GitHub Pages)
+
+set -euo pipefail
+
+# ── Configuration ─────────────────────────────────────────────────────────────
+SKILLS_HUB_URL="${SKILLS_HUB_URL:-https://samueltauil.github.io/skills-hub/data/skills.json}"
+SKILLS_DIR=".github/skills"
+CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/gh-skills"
+CACHE_FILE="$CACHE_DIR/skills.json"
+CACHE_TTL=3600  # 1 hour
+
+# ── Colors ────────────────────────────────────────────────────────────────────
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+BOLD='\033[1m'
+DIM='\033[2m'
+NC='\033[0m'
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
+die() { echo -e "${RED}Error:${NC} $*" >&2; exit 1; }
+info() { echo -e "${BLUE}ℹ${NC} $*"; }
+success() { echo -e "${GREEN}✓${NC} $*"; }
+warn() { echo -e "${YELLOW}⚠${NC} $*"; }
+
+need_cmd() {
+  command -v "$1" >/dev/null 2>&1 || die "'$1' is required but not installed."
+}
+
+# ── Skills data fetching with cache ───────────────────────────────────────────
+fetch_skills_data() {
+  mkdir -p "$CACHE_DIR"
+
+  local use_cache=false
+  if [[ -f "$CACHE_FILE" ]]; then
+    local age
+    if [[ "$(uname)" == "Darwin" ]]; then
+      age=$(( $(date +%s) - $(stat -f %m "$CACHE_FILE") ))
+    else
+      age=$(( $(date +%s) - $(stat -c %Y "$CACHE_FILE") ))
+    fi
+    if (( age < CACHE_TTL )); then
+      use_cache=true
+    fi
+  fi
+
+  if [[ "$use_cache" == "false" ]]; then
+    # Try fetching; fall back to cache if available
+    if curl -fsSL "$SKILLS_HUB_URL" -o "$CACHE_FILE.tmp" 2>/dev/null; then
+      mv "$CACHE_FILE.tmp" "$CACHE_FILE"
+    elif [[ -f "$CACHE_FILE" ]]; then
+      warn "Could not fetch latest data; using cached version."
+    else
+      die "Could not fetch skills data from $SKILLS_HUB_URL"
+    fi
+  fi
+
+  cat "$CACHE_FILE"
+}
+
+# Lightweight JSON field extraction (no jq dependency)
+# Uses Python as it ships on macOS and most Linux distros
+json_query() {
+  local query="$1"
+  python3 -c "
+import json, sys
+data = json.load(sys.stdin)
+$query
+"
+}
+
+# ── Commands ──────────────────────────────────────────────────────────────────
+
+cmd_list() {
+  info "Fetching skills catalog…"
+  local data
+  data=$(fetch_skills_data)
+
+  echo ""
+  echo -e "${BOLD}Available Skills${NC}"
+  echo -e "${DIM}$(echo "$data" | json_query "print(f\"{len(data['skills'])} skills available\")")${NC}"
+  echo ""
+
+  echo "$data" | json_query "
+for s in data['skills']:
+    verified = '✓' if s.get('verified', False) else '⚠'
+    color = '\033[0;32m' if s.get('verified', False) else '\033[0;33m'
+    print(f\"  {color}{verified}\033[0m  \033[1m{s['id']:<35}\033[0m {s.get('shortDescription', s.get('description', ''))[:60]}\")
+"
+  echo ""
+  echo -e "${DIM}Run 'gh skills-hub install <name>' to install a skill.${NC}"
+}
+
+cmd_search() {
+  local query="${1:-}"
+  [[ -z "$query" ]] && die "Usage: gh skills search <query>"
+
+  local data
+  data=$(fetch_skills_data)
+
+  echo ""
+  echo -e "${BOLD}Search results for '${query}'${NC}"
+  echo ""
+
+  local count
+  count=$(echo "$data" | json_query "
+q = '${query}'.lower()
+results = [s for s in data['skills']
+           if q in s['id'].lower()
+           or q in s.get('name','').lower()
+           or q in s.get('description','').lower()
+           or q in ' '.join(s.get('tags',[])).lower()
+           or q in s.get('category','').lower()]
+print(len(results))
+for s in results:
+    verified = '✓' if s.get('verified', False) else '⚠'
+    color = '\033[0;32m' if s.get('verified', False) else '\033[0;33m'
+    cat = s.get('category', 'general')
+    print(f\"  {color}{verified}\033[0m  \033[1m{s['id']:<35}\033[0m \033[2m[{cat}]\033[0m  {s.get('shortDescription', s.get('description',''))[:50]}\")
+")
+
+  if [[ "$count" == "0" ]]; then
+    echo -e "  ${DIM}No skills found matching '${query}'.${NC}"
+  fi
+  echo ""
+}
+
+cmd_info() {
+  local skill_id="${1:-}"
+  [[ -z "$skill_id" ]] && die "Usage: gh skills info <skill-name>"
+
+  local data
+  data=$(fetch_skills_data)
+
+  echo "$data" | json_query "
+matches = [s for s in data['skills'] if s['id'] == '${skill_id}']
+if not matches:
+    print('\033[0;31mError:\033[0m Skill \"${skill_id}\" not found.')
+    sys.exit(1)
+s = matches[0]
+verified = '\033[0;32m✓ Verified\033[0m' if s.get('verified', False) else '\033[0;33m⚠ Unverified\033[0m'
+print()
+print(f\"\033[1m{s['name']}\033[0m  {verified}\")
+print(f\"\033[2m{'─' * 50}\033[0m\")
+print(f\"  {s.get('description', 'No description')}\")
+print()
+print(f\"  \033[1mCategory:\033[0m    {s.get('category', 'general')}\")
+print(f\"  \033[1mAuthor:\033[0m      {s.get('author', 'unknown')}\")
+print(f\"  \033[1mLicense:\033[0m     {s.get('license', 'unknown')}\")
+print(f\"  \033[1mComplexity:\033[0m  {s.get('complexity', 'intermediate')}\")
+print(f\"  \033[1mFiles:\033[0m       {len(s.get('files', []))} file(s)\")
+print(f\"  \033[1mTags:\033[0m        {', '.join(s.get('tags', []))}\")
+print(f\"  \033[1mSource:\033[0m      {s.get('source', {}).get('repo', 'N/A')}\")
+print()
+print(f\"  Install with: \033[0;36mgh skills-hub install {s['id']}\033[0m\")
+print()
+"
+}
+
+cmd_install() {
+  local skill_id="${1:-}"
+  [[ -z "$skill_id" ]] && die "Usage: gh skills install <skill-name>"
+
+  local data
+  data=$(fetch_skills_data)
+
+  # Check if skill exists
+  local exists
+  exists=$(echo "$data" | json_query "
+matches = [s for s in data['skills'] if s['id'] == '${skill_id}']
+print('yes' if matches else 'no')
+")
+
+  [[ "$exists" != "yes" ]] && die "Skill '${skill_id}' not found. Run 'gh skills search' to find skills."
+
+  # Check if already installed
+  local target_dir="${SKILLS_DIR}/${skill_id}"
+  if [[ -d "$target_dir" ]]; then
+    warn "Skill '${skill_id}' is already installed at ${target_dir}/"
+    echo -n -e "  Overwrite? [y/N] "
+    read -r answer
+    [[ "$answer" != "y" && "$answer" != "Y" ]] && { info "Cancelled."; exit 0; }
+    rm -rf "$target_dir"
+  fi
+
+  info "Installing ${BOLD}${skill_id}${NC}…"
+
+  # Extract and write files
+  mkdir -p "$target_dir"
+
+  echo "$data" | json_query "
+import os
+matches = [s for s in data['skills'] if s['id'] == '${skill_id}']
+s = matches[0]
+for f in s.get('files', []):
+    fpath = os.path.join('${target_dir}', f['path'])
+    os.makedirs(os.path.dirname(fpath), exist_ok=True)
+    with open(fpath, 'w') as out:
+        out.write(f['content'])
+    print(f\"  \033[0;32m+\033[0m {f['path']}\")
+print()
+print(f\"  \033[1m{len(s.get('files', []))} file(s)\033[0m written to \033[0;36m${target_dir}/\033[0m\")
+"
+
+  echo ""
+  success "Skill '${skill_id}' installed!"
+  echo -e "  ${DIM}Copilot will auto-discover it from ${target_dir}/${NC}"
+  echo ""
+}
+
+cmd_remove() {
+  local skill_id="${1:-}"
+  [[ -z "$skill_id" ]] && die "Usage: gh skills remove <skill-name>"
+
+  local target_dir="${SKILLS_DIR}/${skill_id}"
+  [[ ! -d "$target_dir" ]] && die "Skill '${skill_id}' is not installed (${target_dir}/ not found)."
+
+  local file_count
+  file_count=$(find "$target_dir" -type f | wc -l | tr -d ' ')
+
+  echo -n -e "  Remove ${BOLD}${skill_id}${NC} (${file_count} files)? [y/N] "
+  read -r answer
+  [[ "$answer" != "y" && "$answer" != "Y" ]] && { info "Cancelled."; exit 0; }
+
+  rm -rf "$target_dir"
+  success "Skill '${skill_id}' removed."
+}
+
+cmd_help() {
+  echo ""
+  echo -e "${BOLD}gh skills-hub${NC} — Install Copilot skills from Skills Hub"
+  echo ""
+  echo -e "${BOLD}USAGE${NC}"
+  echo "  gh skills-hub <command> [arguments]"
+  echo ""
+  echo -e "${BOLD}COMMANDS${NC}"
+  echo "  install <name>    Install a skill into .github/skills/"
+  echo "  search  <query>   Search for skills by name or keyword"
+  echo "  list              List all available skills"
+  echo "  info    <name>    Show details about a skill"
+  echo "  remove  <name>    Remove an installed skill"
+  echo ""
+  echo -e "${BOLD}EXAMPLES${NC}"
+  echo "  gh skills-hub list"
+  echo "  gh skills-hub search git"
+  echo "  gh skills-hub install git-commit-helper"
+  echo "  gh skills-hub info git-commit-helper"
+  echo "  gh skills-hub remove git-commit-helper"
+  echo ""
+  echo -e "${BOLD}ENVIRONMENT${NC}"
+  echo "  SKILLS_HUB_URL    Override the skills data URL"
+  echo ""
+  echo -e "${DIM}https://github.com/samueltauil/skills-hub${NC}"
+  echo ""
+}
+
+# ── Main dispatch ─────────────────────────────────────────────────────────────
+need_cmd curl
+need_cmd python3
+
+case "${1:-}" in
+  install)  shift; cmd_install "$@" ;;
+  search)   shift; cmd_search "$@" ;;
+  list)     cmd_list ;;
+  info)     shift; cmd_info "$@" ;;
+  remove)   shift; cmd_remove "$@" ;;
+  --help|-h|help|"") cmd_help ;;
+  *)        die "Unknown command: $1. Run 'gh skills --help' for usage." ;;
+esac
