@@ -14,7 +14,7 @@
 set -euo pipefail
 
 # ── Configuration ─────────────────────────────────────────────────────────────
-SKILLS_HUB_URL="${SKILLS_HUB_URL:-https://samueltauil.github.io/skills-hub/data/skills.json}"
+SKILLS_HUB_URL="${SKILLS_HUB_URL:-https://skillshub.space/data/skills.json}"
 SKILLS_DIR=".github/skills"
 CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/gh-skills"
 CACHE_FILE="$CACHE_DIR/skills.json"

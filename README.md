@@ -6,7 +6,7 @@
 
 > Discover, browse, and install GitHub Copilot skills for your projects.
 
-[![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-Live-success?logo=github)](https://samueltauil.github.io/skills-hub)
+[![Website](https://img.shields.io/badge/Website-Live-success?logo=github)](https://skillshub.space)
 [![Skills Count](https://img.shields.io/badge/Skills-225-blue)](./site/src/data/skills.json)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -19,11 +19,13 @@
 - **Browse by Category** — Skills organized into 11 categories (Testing, DevOps, Documentation, etc.)
 - **Search** — Find skills by name, description, or trigger keywords
 - **One-Click Install** — Copy commands to add skills to your project
+- **CLI Extension** — Install skills directly from the terminal with `gh skills-hub`
+- **Security Scanning** — Two-pass security scanner (regex + AI) validates every skill
 - **Skill Details** — See what each skill does, its triggers, and example usage
 
 ## Browse Skills
 
-Visit the live site: **[samueltauil.github.io/skills-hub](https://samueltauil.github.io/skills-hub)**
+Visit the live site: **[skillshub.space](https://skillshub.space)**
 
 Or explore the [skills registry](./skills/registry.json) directly.
 
@@ -47,28 +49,27 @@ Or explore the [skills registry](./skills/registry.json) directly.
 
 **Skills are auto-discovered!** Just add them to `.github/skills/` and Copilot loads them automatically based on their `name` and `description` frontmatter.
 
-### Option 1: Git Submodule (Recommended)
+### Option 1: CLI Extension (Recommended)
 
 ```bash
-# Example: Install the conventional-commits skill
-git submodule add https://github.com/example/skill-repo.git .github/skills/conventional-commits
+# Install the gh extension
+gh extension install samueltauil/skills-hub
+
+# Search for skills
+gh skills-hub search git
+
+# Install a skill
+gh skills-hub install git-commit
+
+# Browse all available skills
+gh skills-hub list
 ```
 
-### Option 2: Direct Copy
+### Option 2: Download from Website
 
-1. Find the skill on the website
-2. Download or copy the skill folder
-3. Place it in `.github/skills/<skill-name>/` in your project
-4. Ensure the folder contains a `SKILL.md` file
-
-### Option 3: Manual Download
-
-```bash
-# Create skill directory and download SKILL.md
-mkdir -p .github/skills/conventional-commits
-curl -o .github/skills/conventional-commits/SKILL.md \
-  https://raw.githubusercontent.com/example/skill-repo/main/SKILL.md
-```
+1. Find the skill on [skillshub.space](https://skillshub.space)
+2. Click **Download ZIP** or **Copy All Files** on the skill detail page
+3. Extract to `.github/skills/<skill-name>/` in your project
 
 > **Note:** No configuration needed! Copilot discovers skills automatically from `.github/skills/`.
 
@@ -88,9 +89,11 @@ skills-hub/
 │   └── public/           # Static assets
 ├── skills/
 │   ├── schema.json       # Skill metadata schema
-│   └── registry.json     # Manually curated skills subset
+│   ├── registry.json     # Manually curated skills subset
+│   └── security-rules.yml # Security scan rules
+├── scripts/              # Build, scan, and enrichment scripts
 ├── sources/              # Upstream skill sources (git submodules)
-├── scripts/              # Sync and utility scripts
+├── gh-skills-hub         # GitHub CLI extension
 └── CONTRIBUTING.md       # How to add skills
 ```
 
@@ -129,21 +132,21 @@ We welcome skill contributions! See the full **[Contribution Guide](CONTRIBUTING
 
 ### Prerequisites
 
-- Node.js 18+
-- pnpm (or npm/yarn)
+- Node.js 20+
+- npm
 
 ### Run Locally
 
 ```bash
-cd site
-pnpm install
-pnpm dev
+npm install
+cd site && npm install && cd ..
+npm run dev
 ```
 
 ### Build for Production
 
 ```bash
-pnpm build
+npm run build
 ```
 
 ### Available Scripts
@@ -153,29 +156,37 @@ Run from the repository root:
 | Script | Description |
 |--------|-------------|
 | `npm run aggregate` | Aggregate skills from submodule sources into `site/src/data/skills.json` |
-| `npm run scan` | Run security scan on all skills; updates `verified` field and embeds scan results |
+| `npm run scan` | Run regex security scan on all skills; updates `verified` field |
+| `npm run scan:ai` | Run regex + AI security scan (requires `GITHUB_TOKEN` and Copilot CLI) |
 | `npm run enrich` | AI-enrich skill metadata using `@github/copilot-sdk` (requires Copilot CLI) |
 | `npm run build` | Aggregate + scan + build the Astro site |
 | `npm run dev` | Aggregate + start local dev server |
 
 ## Security Scanning
 
-Every skill is automatically scanned for potentially dangerous patterns using rules defined in [`skills/security-rules.yml`](skills/security-rules.yml).
-
-Skills that pass the scan receive a **✅ Verified** badge on the catalog and their detail page.
+Every skill undergoes a two-pass automated security scan before being published.
 
 ### How it works
 
-1. The scanner reads all code blocks from each skill's `SKILL.md` file
-2. Each block is matched against the rules in `security-rules.yml`
-3. Results are written back to `skills.json` (the `securityScan` and `verified` fields)
-4. The site is rebuilt to reflect the updated badges
+**Pass 1 — Pattern analysis** scans all skill files against 13 regex-based rules defined in [`skills/security-rules.yml`](skills/security-rules.yml):
+- Shell command execution, eval, and unsafe deserialization
+- Prompt injection markers and social engineering phrases
+- Hardcoded secrets, credentials, and sensitive file access
+- Base64 decode-and-execute, environment variable exfiltration
+- Path traversal, SQL injection, and curl-pipe-to-shell patterns
+
+**Pass 2 — AI deep scan** (opt-in) uses `@github/copilot-sdk` to semantically analyze skills for threats that regex can't catch: obfuscated malware, disguised data exfiltration, and supply chain risks.
+
+Skills that pass the scan receive a **✅ Verified** badge on the catalog and their detail page.
 
 ### Running a scan manually
 
 ```bash
-# Scan and update skills.json
+# Regex scan (default — runs as part of build)
 npm run scan
+
+# Regex + AI scan (requires GITHUB_TOKEN)
+GITHUB_TOKEN=ghp_... npm run scan:ai
 
 # Scan only (no write-back)
 node scripts/scan-skills.js --output my-report.json
