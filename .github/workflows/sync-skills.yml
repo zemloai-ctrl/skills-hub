@@ -130,6 +130,7 @@ jobs:
 
       - name: Commit and push changes
         if: steps.check-submodules.outputs.changes == 'true'
+        id: commit
         run: |
           git add -A
           
@@ -141,10 +142,21 @@ jobs:
 
           Updated submodules: ${UPDATED_SUBMODULES:-'various sources'}
           
-          Automated weekly sync by GitHub Actions"
+          Automated sync by GitHub Actions"
           
-          git commit -m "$COMMIT_MSG" || echo "No changes to commit"
-          git push
+          if git commit -m "$COMMIT_MSG"; then
+            git push
+            echo "pushed=true" >> $GITHUB_OUTPUT
+          else
+            echo "No changes to commit"
+            echo "pushed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Trigger deploy
+        if: steps.commit.outputs.pushed == 'true'
+        run: gh workflow run deploy.yml
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Summary
         run: |
