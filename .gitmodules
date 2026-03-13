@@ -10,3 +10,6 @@
 [submodule "sources/ui-ux-pro-max-skill"]
 	path = sources/ui-ux-pro-max-skill
 	url = https://github.com/nextlevelbuilder/ui-ux-pro-max-skill.git
+[submodule "sources/azure-skills"]
+	path = sources/azure-skills
+	url = https://github.com/microsoft/azure-skills.git
