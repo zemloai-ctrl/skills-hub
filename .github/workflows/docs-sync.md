@@ -42,7 +42,12 @@ The documentation files that must stay in sync are:
 
 ## Your Task
 
-1. **Read the current skills data** from `site/src/data/skills.json` (the canonical aggregated source). Count categories and skills from this file only. You may also glance at `skills/registry.json` for context, but never use its counts for documentation.
+1. **Read the current skills data** from `site/src/data/skills.json` (the canonical aggregated source). **IMPORTANT: This file is very large (10 MB+). Do NOT read the entire file or attempt to count individual skill entries.** Instead, extract the summary fields at the top of the file using shell commands:
+   - Total skills count: `jq '.totalSkills' site/src/data/skills.json`
+   - Category list with counts: `jq '.categories' site/src/data/skills.json`
+   - Category names: `jq '[.categories[].id]' site/src/data/skills.json`
+   
+   These summary fields are maintained by the aggregation pipeline and are the authoritative source for all counts. You may also glance at `skills/registry.json` for context, but never use its counts for documentation.
 
 2. **Audit the documentation** for staleness:
    - **README.md**: Check that the categories table lists all current categories (and no removed ones) with correct per-category skill counts from `site/src/data/skills.json`. Check that the skills count badge number matches the total from `site/src/data/skills.json`. Check that the project structure section reflects reality.
